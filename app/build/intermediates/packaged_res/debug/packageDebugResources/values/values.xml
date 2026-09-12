@@ -8,14 +8,18 @@
     <color name="text_primary">#F2F2F2</color>
     <color name="text_secondary">#BDBDBD</color>
     <string name="app_name">Bible Tracking</string>
-    <style name="Theme.BibleTracking" parent="android:style/Theme.Material.NoActionBar">
+    <style name="Theme.BibleTracking" parent="Theme.AppCompat.DayNight.NoActionBar">
+
         <item name="android:fontFamily">sans</item>
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:colorAccent">@color/accent_blue</item>
+
+        <item name="colorAccent">@color/accent_blue</item>
+
         <item name="android:windowBackground">@color/background</item>
         <item name="android:navigationBarColor">@color/background</item>
         <item name="android:statusBarColor">@color/background</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowNoTitle">true</item>
+
     </style>
 </resources>

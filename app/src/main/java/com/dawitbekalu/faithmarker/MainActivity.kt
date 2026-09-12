@@ -2,7 +2,9 @@ package com.dawitbekalu.faithmarker
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
@@ -12,6 +14,7 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
 
 data class BibleBook(
     val name: String,
@@ -29,13 +32,26 @@ data class Achievement(
 
 class MainActivity : AppCompatActivity() {
 
+    // ------------------------------------------------------------
+    // COLORS — FAITH MARK STYLE
+    // ------------------------------------------------------------
+
     private val bg = Color.rgb(17, 17, 17)
-    private val surface = Color.rgb(38, 38, 38)
-    private val surface2 = Color.rgb(48, 48, 48)
+    private val surface = Color.rgb(30, 30, 30)
+    private val surface2 = Color.rgb(42, 42, 42)
+    private val surface3 = Color.rgb(52, 52, 52)
+
     private val green = Color.rgb(156, 175, 136)
+    private val greenDark = Color.rgb(110, 128, 94)
+
     private val blue = Color.rgb(121, 215, 245)
+    private val blueDark = Color.rgb(64, 125, 145)
+
     private val white = Color.rgb(242, 242, 242)
-    private val gray = Color.rgb(180, 180, 180)
+    private val gray = Color.rgb(170, 170, 170)
+    private val gray2 = Color.rgb(115, 115, 115)
+
+    private val red = Color.rgb(220, 110, 110)
 
     private val prefs by lazy {
         getSharedPreferences("bible_tracking_data", MODE_PRIVATE)
@@ -47,28 +63,62 @@ class MainActivity : AppCompatActivity() {
 
     private var currentTracker = "Bible"
     private var currentTestament = "Old Testament"
+    private var currentScreen = "home"
 
-    private lateinit var root: LinearLayout
+    private var selectedTheme = green
+
+    private var backupPendingData: String? = null
+
+    // ------------------------------------------------------------
+    // CREATE
+    // ------------------------------------------------------------
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         loadDefaultBooks()
         loadData()
+        loadTheme()
         loadAchievements()
 
+        // FIRST PAGE — KEEPING THE HOME DESIGN
         showTrackers()
     }
 
     // ------------------------------------------------------------
-    // DATA
+    // BACK
     // ------------------------------------------------------------
 
+    @Deprecated("Use OnBackPressedDispatcher for new code")
+    override fun onBackPressed() {
+
+        when (currentScreen) {
+
+            "book" -> showTracker()
+
+            "stats" -> showTracker()
+
+            "achievements" -> showTracker()
+
+            "settings" -> showTrackers()
+
+            "tracker" -> showTrackers()
+
+            else -> super.onBackPressed()
+        }
+    }
+
+    // ============================================================
+    // DATA
+    // ============================================================
+
     private fun loadDefaultBooks() {
+
         if (books.isNotEmpty()) return
 
         addBooks(
-            "Old Testament", "Law",
+            "Old Testament",
+            "Law",
             listOf(
                 "Genesis" to 50,
                 "Exodus" to 40,
@@ -79,7 +129,8 @@ class MainActivity : AppCompatActivity() {
         )
 
         addBooks(
-            "Old Testament", "History",
+            "Old Testament",
+            "History",
             listOf(
                 "Joshua" to 24,
                 "Judges" to 21,
@@ -97,7 +148,8 @@ class MainActivity : AppCompatActivity() {
         )
 
         addBooks(
-            "Old Testament", "Poetry",
+            "Old Testament",
+            "Poetry",
             listOf(
                 "Job" to 42,
                 "Psalms" to 150,
@@ -108,7 +160,8 @@ class MainActivity : AppCompatActivity() {
         )
 
         addBooks(
-            "Old Testament", "Major Prophets",
+            "Old Testament",
+            "Major Prophets",
             listOf(
                 "Isaiah" to 66,
                 "Jeremiah" to 52,
@@ -119,7 +172,8 @@ class MainActivity : AppCompatActivity() {
         )
 
         addBooks(
-            "Old Testament", "Minor Prophets",
+            "Old Testament",
+            "Minor Prophets",
             listOf(
                 "Hosea" to 14,
                 "Joel" to 3,
@@ -137,7 +191,8 @@ class MainActivity : AppCompatActivity() {
         )
 
         addBooks(
-            "New Testament", "Gospels",
+            "New Testament",
+            "Gospels",
             listOf(
                 "Matthew" to 28,
                 "Mark" to 16,
@@ -147,14 +202,16 @@ class MainActivity : AppCompatActivity() {
         )
 
         addBooks(
-            "New Testament", "History",
+            "New Testament",
+            "History",
             listOf(
                 "Acts" to 28
             )
         )
 
         addBooks(
-            "New Testament", "Paul's Letters",
+            "New Testament",
+            "Paul's Letters",
             listOf(
                 "Romans" to 16,
                 "1 Corinthians" to 16,
@@ -173,7 +230,8 @@ class MainActivity : AppCompatActivity() {
         )
 
         addBooks(
-            "New Testament", "General Letters",
+            "New Testament",
+            "General Letters",
             listOf(
                 "Hebrews" to 13,
                 "James" to 5,
@@ -187,7 +245,8 @@ class MainActivity : AppCompatActivity() {
         )
 
         addBooks(
-            "New Testament", "Prophecy",
+            "New Testament",
+            "Prophecy",
             listOf(
                 "Revelation" to 22
             )
@@ -199,19 +258,35 @@ class MainActivity : AppCompatActivity() {
         group: String,
         list: List<Pair<String, Int>>
     ) {
+
         list.forEach {
-            books.add(BibleBook(it.first, it.second, testament, group))
+            books.add(
+                BibleBook(
+                    it.first,
+                    it.second,
+                    testament,
+                    group
+                )
+            )
         }
     }
 
     private fun loadData() {
-        val saved = prefs.getString("read_data", null) ?: return
+
+        val saved =
+            prefs.getString("read_data", null)
+                ?: return
 
         try {
+
             val obj = JSONObject(saved)
 
             for (book in books) {
-                val array = obj.optJSONArray(book.name) ?: continue
+
+                val array =
+                    obj.optJSONArray(book.name)
+                        ?: continue
+
                 val set = mutableSetOf<Int>()
 
                 for (i in 0 until array.length()) {
@@ -220,16 +295,23 @@ class MainActivity : AppCompatActivity() {
 
                 read[book.name] = set
             }
+
         } catch (_: Exception) {
         }
     }
 
     private fun saveData() {
+
         val obj = JSONObject()
 
         read.forEach { (book, chapters) ->
+
             val array = JSONArray()
-            chapters.forEach { array.put(it) }
+
+            chapters.forEach {
+                array.put(it)
+            }
+
             obj.put(book, array)
         }
 
@@ -238,52 +320,210 @@ class MainActivity : AppCompatActivity() {
             .apply()
     }
 
+    // ============================================================
+    // THEME
+    // ============================================================
+
+    private fun loadTheme() {
+
+        selectedTheme =
+            prefs.getInt(
+                "theme_color",
+                green
+            )
+    }
+
+    // ============================================================
+    // ACHIEVEMENTS
+    // ============================================================
+
     private fun loadAchievements() {
+
         achievements.clear()
 
         achievements.addAll(
             listOf(
-                Achievement("The Man", "Read Matthew", "Matthew"),
-                Achievement("The Lion", "Read Mark", "Mark"),
-                Achievement("The Calf", "Read Luke", "Luke"),
-                Achievement("The Eagle", "Read John", "John"),
-                Achievement("Evangelist", "Read the four Gospels"),
-                Achievement("Apostle", "Read Acts", "Acts"),
-                Achievement("The Rock", "Read Peter's first and second letters"),
-                Achievement("The Beginning", "Read Genesis", "Genesis"),
-                Achievement("No longer slave", "Read Exodus", "Exodus"),
-                Achievement("Sanctified", "Read Leviticus", "Leviticus"),
-                Achievement("Are we there yet?", "Read Numbers", "Numbers"),
-                Achievement("Covenant", "Read Deuteronomy", "Deuteronomy"),
-                Achievement("No Longer Ruthless", "Read Ruth", "Ruth"),
-                Achievement("Scribe", "Read the 5 books of Moses"),
-                Achievement("Poet", "Read all the poetry books"),
-                Achievement("Historian", "Read all History books"),
-                Achievement("Prophet", "Read all major and minor prophets"),
-                Achievement("Wise Man", "Read Proverbs, Job and Ecclesiastes"),
-                Achievement("Royal", "Read Samuel, Kings and Chronicles"),
-                Achievement("Paul(in)ist", "Read all of Paul's letters"),
-                Achievement("Penpal", "Read all of the letters"),
-                Achievement("Apocalyptic", "Read Daniel, Ezekiel, Zechariah and Revelation"),
-                Achievement("The New Covenant", "Read the entire New Testament"),
-                Achievement("Before Christ", "Read the entire Old Testament"),
-                Achievement("25%", "Read 25% of the Bible"),
-                Achievement("50%", "Read 50% of the Bible"),
-                Achievement("75%", "Read 75% of the Bible"),
-                Achievement("Bible Nerd", "Read the whole Bible")
+
+                Achievement(
+                    "The Man",
+                    "Read Matthew",
+                    "Matthew"
+                ),
+
+                Achievement(
+                    "The Lion",
+                    "Read Mark",
+                    "Mark"
+                ),
+
+                Achievement(
+                    "The Calf",
+                    "Read Luke",
+                    "Luke"
+                ),
+
+                Achievement(
+                    "The Eagle",
+                    "Read John",
+                    "John"
+                ),
+
+                Achievement(
+                    "Evangelist",
+                    "Read the four Gospels"
+                ),
+
+                Achievement(
+                    "Apostle",
+                    "Read Acts",
+                    "Acts"
+                ),
+
+                Achievement(
+                    "The Rock",
+                    "Read 1 Peter and 2 Peter"
+                ),
+
+                Achievement(
+                    "The Beginning",
+                    "Read Genesis",
+                    "Genesis"
+                ),
+
+                Achievement(
+                    "No longer slave",
+                    "Read Exodus",
+                    "Exodus"
+                ),
+
+                Achievement(
+                    "Sanctified",
+                    "Read Leviticus",
+                    "Leviticus"
+                ),
+
+                Achievement(
+                    "Are we there yet?",
+                    "Read Numbers",
+                    "Numbers"
+                ),
+
+                Achievement(
+                    "Covenant",
+                    "Read Deuteronomy",
+                    "Deuteronomy"
+                ),
+
+                Achievement(
+                    "No Longer Ruthless",
+                    "Read Ruth",
+                    "Ruth"
+                ),
+
+                Achievement(
+                    "Scribe",
+                    "Read the 5 books of Moses"
+                ),
+
+                Achievement(
+                    "Poet",
+                    "Read all the poetry books"
+                ),
+
+                Achievement(
+                    "Historian",
+                    "Read all History books"
+                ),
+
+                Achievement(
+                    "Prophet",
+                    "Read all major and minor prophets"
+                ),
+
+                Achievement(
+                    "Wise Man",
+                    "Read Proverbs, Job and Ecclesiastes"
+                ),
+
+                Achievement(
+                    "Royal",
+                    "Read Samuel, Kings and Chronicles"
+                ),
+
+                Achievement(
+                    "Paul(in)ist",
+                    "Read all of Paul's letters"
+                ),
+
+                Achievement(
+                    "Penpal",
+                    "Read all of the letters"
+                ),
+
+                Achievement(
+                    "Apocalyptic",
+                    "Read Daniel, Ezekiel, Zechariah and Revelation"
+                ),
+
+                Achievement(
+                    "The New Covenant",
+                    "Read the entire New Testament"
+                ),
+
+                Achievement(
+                    "Before Christ",
+                    "Read the entire Old Testament"
+                ),
+
+                Achievement(
+                    "25%",
+                    "Read 25% of the Bible"
+                ),
+
+                Achievement(
+                    "50%",
+                    "Read 50% of the Bible"
+                ),
+
+                Achievement(
+                    "75%",
+                    "Read 75% of the Bible"
+                ),
+
+                Achievement(
+                    "Bible Nerd",
+                    "Read the whole Bible"
+                )
             )
         )
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // UI HELPERS
-    // ------------------------------------------------------------
+    // ============================================================
 
-    private fun baseLayout(): LinearLayout {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bg)
-            setPadding(12, 8, 12, 12)
+    private fun dp(value: Int): Int {
+
+        return (
+            value *
+                resources.displayMetrics.density
+            ).toInt()
+    }
+
+    private fun rounded(
+        color: Int,
+        radius: Int = 16
+    ): android.graphics.drawable.GradientDrawable {
+
+        return android.graphics.drawable.GradientDrawable().apply {
+
+            shape =
+                android.graphics.drawable.GradientDrawable.RECTANGLE
+
+            cornerRadius =
+                dp(radius).toFloat()
+
+            setColor(color)
         }
     }
 
@@ -292,328 +532,1096 @@ class MainActivity : AppCompatActivity() {
         size: Float = 16f,
         color: Int = white
     ): TextView {
+
         return TextView(this).apply {
+
             text = value
+
             textSize = size
+
             setTextColor(color)
-            gravity = Gravity.CENTER_VERTICAL
+
+            gravity =
+                Gravity.CENTER_VERTICAL
         }
     }
 
-    private fun button(
-        value: String,
-        onClick: () -> Unit
-    ): TextView {
-        return TextView(this).apply {
-            text = value
-            textSize = 14f
-            setTextColor(white)
-            gravity = Gravity.CENTER
-            setPadding(14, 12, 14, 12)
-            setBackgroundColor(surface2)
-            setOnClickListener { onClick() }
-        }
-    }
+    private fun addSpace(
+        parent: LinearLayout,
+        height: Int = 8
+    ) {
 
-    private fun addSpace(parent: LinearLayout, height: Int = 8) {
-        val space = Space(this)
         parent.addView(
-            space,
+            Space(this),
             LinearLayout.LayoutParams(
                 1,
-                height
+                dp(height)
             )
         )
     }
 
     private fun setScreen(view: View) {
+
         setContentView(view)
     }
 
-    // ------------------------------------------------------------
-    // TRACKERS
-    // ------------------------------------------------------------
+    private fun modernButton(
+        value: String,
+        onClick: () -> Unit
+    ): TextView {
+
+        return TextView(this).apply {
+
+            text = value
+
+            textSize = 14f
+
+            setTextColor(white)
+
+            gravity = Gravity.CENTER
+
+            setPadding(
+                dp(12),
+                dp(8),
+                dp(12),
+                dp(8)
+            )
+
+            background =
+                rounded(surface2, 13)
+
+            setOnClickListener {
+                onClick()
+            }
+        }
+    }
+
+    private fun primaryButton(
+        value: String,
+        onClick: () -> Unit
+    ): TextView {
+
+        return TextView(this).apply {
+
+            text = value
+
+            textSize = 15f
+
+            typeface =
+                Typeface.DEFAULT_BOLD
+
+            setTextColor(Color.BLACK)
+
+            gravity = Gravity.CENTER
+
+            background =
+                rounded(selectedTheme, 15)
+
+            setOnClickListener {
+                onClick()
+            }
+        }
+    }
+
+    private fun page(): LinearLayout {
+
+        return LinearLayout(this).apply {
+
+            orientation =
+                LinearLayout.VERTICAL
+
+            setBackgroundColor(bg)
+
+            setPadding(
+                dp(16),
+                dp(12),
+                dp(16),
+                dp(18)
+            )
+        }
+    }
+
+    private fun sectionTitle(
+        value: String
+    ): TextView {
+
+        return text(
+            value.uppercase(Locale.getDefault()),
+            11f,
+            gray
+        ).apply {
+
+            typeface =
+                Typeface.DEFAULT_BOLD
+
+            letterSpacing = 0.08f
+
+            setPadding(
+                dp(2),
+                dp(8),
+                dp(2),
+                dp(8)
+            )
+        }
+    }
+
+    // ============================================================
+    // HOME PAGE
+    // KEEPING THE FIRST PAGE DESIGN
+    // ============================================================
 
     private fun showTrackers() {
-        root = baseLayout()
 
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
+        currentScreen = "home"
 
-        val title = text("Bible Trackers", 22f)
-        header.addView(
-            title,
-            LinearLayout.LayoutParams(0, 58, 1f)
+        val root =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setBackgroundColor(bg)
+
+                setPadding(
+                    dp(16),
+                    dp(10),
+                    dp(16),
+                    dp(20)
+                )
+            }
+
+        val scroll =
+            ScrollView(this).apply {
+
+                isFillViewport = true
+
+                setBackgroundColor(bg)
+            }
+
+        val content =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+            }
+
+        // HEADER
+
+        val header =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+            }
+
+        val titleBox =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+            }
+
+        titleBox.addView(
+            text(
+                "Bible Trackers",
+                26f,
+                white
+            ).apply {
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+
+            },
+            LinearLayout.LayoutParams(
+                -1,
+                dp(38)
+            )
         )
 
-        val settings = text("⚙", 25f, green).apply {
-            gravity = Gravity.CENTER
-            setOnClickListener { showSettings() }
-        }
+        titleBox.addView(
+            text(
+                "Track your Bible reading progress",
+                13f,
+                gray
+            ).apply {
+
+                setPadding(
+                    0,
+                    dp(2),
+                    0,
+                    0
+                )
+
+            },
+            LinearLayout.LayoutParams(
+                -1,
+                dp(25)
+            )
+        )
+
+        header.addView(
+            titleBox,
+            LinearLayout.LayoutParams(
+                0,
+                dp(70),
+                1f
+            )
+        )
+
+        val settings =
+            TextView(this).apply {
+
+                text = "⚙"
+
+                textSize = 25f
+
+                setTextColor(white)
+
+                gravity = Gravity.CENTER
+
+                background =
+                    rounded(surface2, 14)
+
+                setOnClickListener {
+                    showSettings()
+                }
+            }
 
         header.addView(
             settings,
-            LinearLayout.LayoutParams(55, 58)
+            LinearLayout.LayoutParams(
+                dp(52),
+                dp(52)
+            ).apply {
+
+                setMargins(
+                    dp(8),
+                    0,
+                    0,
+                    0
+                )
+            }
         )
 
-        root.addView(header)
-
-        val add = button("＋  Add new") {
-            addTrackerDialog()
-        }
-
-        root.addView(
-            add,
+        content.addView(
+            header,
             LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                52
+                -1,
+                dp(76)
             )
         )
 
-        addSpace(root)
+        // ADD BUTTON
 
-        val hasTracker = true
-
-        if (!hasTracker) {
-            val empty = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
+        val addButton =
+            primaryButton(
+                "＋   Add new Bible tracker"
+            ) {
+                addTrackerDialog()
             }
 
-            val icon = text("📖", 70f)
-            icon.gravity = Gravity.CENTER
+        content.addView(
+            addButton,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(54)
+            ).apply {
 
-            empty.addView(icon)
-
-            empty.addView(
-                text("No Bible Trackers", 20f).apply {
-                    gravity = Gravity.CENTER
-                }
-            )
-
-            empty.addView(
-                text("Add a new Bible tracker to keep track\nof your reading progress", 14f, gray).apply {
-                    gravity = Gravity.CENTER
-                }
-            )
-
-            root.addView(
-                empty,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    500
+                setMargins(
+                    0,
+                    dp(4),
+                    0,
+                    dp(24)
                 )
-            )
-        } else {
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(12, 8, 12, 8)
-                setBackgroundColor(surface2)
+            }
+        )
+
+        // SECTION
+
+        content.addView(
+            sectionTitle("Your Trackers")
+        )
+
+        // CARD
+
+        val card =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(18),
+                    dp(17),
+                    dp(18),
+                    dp(16)
+                )
+
+                background =
+                    rounded(surface2, 18)
+
                 setOnClickListener {
                     showTracker()
                 }
             }
 
-            val progress = text("${overallPercent()}%", 13f, Color.BLACK).apply {
+        val topRow =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+            }
+
+        val icon =
+            TextView(this).apply {
+
+                text = "📖"
+
+                textSize = 28f
+
                 gravity = Gravity.CENTER
-                setBackgroundColor(blue)
+
+                background =
+                    rounded(selectedTheme, 14)
             }
 
-            card.addView(
-                progress,
-                LinearLayout.LayoutParams(48, 48)
+        topRow.addView(
+            icon,
+            LinearLayout.LayoutParams(
+                dp(58),
+                dp(58)
             )
+        )
 
-            val name = text("Bible", 16f).apply {
-                setPadding(15, 0, 0, 0)
-            }
+        val info =
+            LinearLayout(this).apply {
 
-            card.addView(
-                name,
-                LinearLayout.LayoutParams(0, 55, 1f)
-            )
+                orientation =
+                    LinearLayout.VERTICAL
 
-            card.addView(
-                text("›", 28f, white).apply {
-                    gravity = Gravity.CENTER
-                },
-                LinearLayout.LayoutParams(45, 55)
-            )
-
-            root.addView(
-                card,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    65
+                setPadding(
+                    dp(14),
+                    0,
+                    dp(8),
+                    0
                 )
+            }
+
+        info.addView(
+            text(
+                "Bible",
+                20f,
+                white
+            ).apply {
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+
+            },
+            LinearLayout.LayoutParams(
+                -1,
+                dp(30)
             )
+        )
+
+        info.addView(
+            text(
+                "66 books  •  1,189 chapters",
+                13f,
+                gray
+            ),
+            LinearLayout.LayoutParams(
+                -1,
+                dp(25)
+            )
+        )
+
+        topRow.addView(
+            info,
+            LinearLayout.LayoutParams(
+                0,
+                dp(60),
+                1f
+            )
+        )
+
+        val percent =
+            overallPercent()
+
+        topRow.addView(
+            text(
+                "$percent%",
+                18f,
+                blue
+            ).apply {
+
+                gravity = Gravity.CENTER
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+
+            },
+            LinearLayout.LayoutParams(
+                dp(58),
+                dp(58)
+            )
+        )
+
+        card.addView(
+            topRow,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(62)
+            )
+        )
+
+        val progress =
+            ProgressBar(
+                this,
+                null,
+                android.R.attr.progressBarStyleHorizontal
+            ).apply {
+
+                max = 100
+
+                progress =
+                    overallPercentValue()
+                        .toInt()
+
+                progressTintList =
+                    ColorStateList.valueOf(blue)
+
+                progressBackgroundTintList =
+                    ColorStateList.valueOf(
+                        Color.rgb(65, 65, 65)
+                    )
+            }
+
+        card.addView(
+            progress,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(7)
+            ).apply {
+
+                setMargins(
+                    0,
+                    dp(16),
+                    0,
+                    dp(12)
+                )
+            }
+        )
+
+        val footer =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+            }
+
+        footer.addView(
+            text(
+                "Tap to continue reading",
+                13f,
+                gray
+            ),
+            LinearLayout.LayoutParams(
+                0,
+                dp(26),
+                1f
+            )
+        )
+
+        footer.addView(
+            text(
+                "›",
+                28f,
+                white
+            ).apply {
+
+                gravity = Gravity.CENTER
+            },
+            LinearLayout.LayoutParams(
+                dp(32),
+                dp(28)
+            )
+        )
+
+        card.addView(footer)
+
+        content.addView(
+            card,
+            LinearLayout.LayoutParams(
+                -1,
+                -2
+            ).apply {
+
+                setMargins(
+                    0,
+                    0,
+                    0,
+                    dp(24)
+                )
+            }
+        )
+
+        // QUICK OVERVIEW
+
+        content.addView(
+            sectionTitle("Quick Overview")
+        )
+
+        val totalRead =
+            read.values.sumOf {
+                it.size
+            }
+
+        val completedBooks =
+            books.count {
+                (read[it.name]?.size ?: 0) >=
+                    it.chapters
+            }
+
+        val stats =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+            }
+
+        fun stat(
+            number: String,
+            label: String
+        ): LinearLayout {
+
+            return LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                gravity =
+                    Gravity.CENTER
+
+                setPadding(
+                    dp(6),
+                    dp(12),
+                    dp(6),
+                    dp(10)
+                )
+
+                background =
+                    rounded(surface2, 16)
+
+                addView(
+                    text(
+                        number,
+                        21f,
+                        white
+                    ).apply {
+
+                        gravity =
+                            Gravity.CENTER
+
+                        typeface =
+                            Typeface.DEFAULT_BOLD
+
+                    },
+                    LinearLayout.LayoutParams(
+                        -1,
+                        dp(32)
+                    )
+                )
+
+                addView(
+                    text(
+                        label,
+                        11f,
+                        gray
+                    ).apply {
+
+                        gravity =
+                            Gravity.CENTER
+
+                    },
+                    LinearLayout.LayoutParams(
+                        -1,
+                        dp(25)
+                    )
+                )
+            }
         }
+
+        stats.addView(
+            stat(
+                totalRead.toString(),
+                "Chapters read"
+            ),
+            LinearLayout.LayoutParams(
+                0,
+                dp(78),
+                1f
+            ).apply {
+
+                setMargins(
+                    0,
+                    0,
+                    dp(5),
+                    0
+                )
+            }
+        )
+
+        stats.addView(
+            stat(
+                completedBooks.toString(),
+                "Books completed"
+            ),
+            LinearLayout.LayoutParams(
+                0,
+                dp(78),
+                1f
+            ).apply {
+
+                setMargins(
+                    dp(5),
+                    0,
+                    dp(5),
+                    0
+                )
+            }
+        )
+
+        stats.addView(
+            stat(
+                "${overallPercent()}%",
+                "Overall progress"
+            ),
+            LinearLayout.LayoutParams(
+                0,
+                dp(78),
+                1f
+            ).apply {
+
+                setMargins(
+                    dp(5),
+                    0,
+                    0,
+                    0
+                )
+            }
+        )
+
+        content.addView(
+            stats,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(78)
+            )
+        )
+
+        content.addView(
+            Space(this),
+            LinearLayout.LayoutParams(
+                1,
+                dp(30)
+            )
+        )
+
+        scroll.addView(content)
+
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                -1,
+                0,
+                1f
+            )
+        )
 
         setScreen(root)
     }
 
-    private fun addTrackerDialog() {
-        val input = EditText(this).apply {
-            hint = "Name"
-            setTextColor(white)
-            setHintTextColor(gray)
-        }
+    // ============================================================
+    // ADD TRACKER
+    // ============================================================
 
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(30, 10, 30, 10)
-            addView(input)
-        }
+    private fun addTrackerDialog() {
+
+        val input =
+            EditText(this).apply {
+
+                hint = "Tracker name"
+
+                setTextColor(white)
+
+                setHintTextColor(gray)
+            }
+
+        val box =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(24),
+                    dp(10),
+                    dp(24),
+                    dp(4)
+                )
+
+                addView(input)
+            }
 
         AlertDialog.Builder(this)
-            .setTitle("Add new Bible Tracker")
+            .setTitle("Add new Bible tracker")
             .setView(box)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Save") { _, _ ->
-                val name = input.text.toString().trim()
+            .setNegativeButton(
+                "Cancel",
+                null
+            )
+            .setPositiveButton(
+                "Save"
+            ) { _, _ ->
+
+                val name =
+                    input.text
+                        .toString()
+                        .trim()
 
                 if (name.isNotEmpty()) {
+
                     currentTracker = name
+
+                    Toast.makeText(
+                        this,
+                        "$name created",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
                     showTrackers()
                 }
             }
             .show()
     }
 
-    // ------------------------------------------------------------
-    // MAIN TRACKER
-    // ------------------------------------------------------------
+    // ============================================================
+    // TRACKER PAGE
+    // ============================================================
 
     private fun showTracker() {
-        val screen = baseLayout()
 
-        val top = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
+        currentScreen = "tracker"
 
-        top.addView(
-            button("‹ Back") {
+        val screen = page()
+
+        // HEADER
+
+        val header =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+            }
+
+        header.addView(
+            modernButton("‹") {
                 showTrackers()
             },
-            LinearLayout.LayoutParams(95, 50)
+            LinearLayout.LayoutParams(
+                dp(48),
+                dp(48)
+            )
         )
 
-        val percent = text("${overallPercent()}%\nof the Bible", 18f).apply {
-            gravity = Gravity.CENTER
-        }
+        val title =
+            LinearLayout(this).apply {
 
-        top.addView(
-            percent,
-            LinearLayout.LayoutParams(0, 65, 1f)
+                orientation =
+                    LinearLayout.VERTICAL
+
+                gravity =
+                    Gravity.CENTER
+            }
+
+        title.addView(
+            text(
+                "Bible",
+                21f,
+                white
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            }
         )
 
-        top.addView(
-            button("🏆\nAchievements") {
+        title.addView(
+            text(
+                "${overallPercent()}% complete",
+                11f,
+                gray
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+            }
+        )
+
+        header.addView(
+            title,
+            LinearLayout.LayoutParams(
+                0,
+                dp(56),
+                1f
+            )
+        )
+
+        header.addView(
+            modernButton("🏆") {
                 showAchievements()
             },
-            LinearLayout.LayoutParams(115, 65)
+            LinearLayout.LayoutParams(
+                dp(50),
+                dp(48)
+            )
         )
 
-        screen.addView(top)
+        screen.addView(header)
 
-        addSpace(screen)
+        addSpace(screen, 14)
 
-        val tabs = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
+        // PROGRESS CARD
 
-        tabs.addView(
-            button("Old Testament") {
-                currentTestament = "Old Testament"
+        val progressCard =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(17),
+                    dp(15),
+                    dp(17),
+                    dp(15)
+                )
+
+                background =
+                    rounded(surface2, 18)
+            }
+
+        progressCard.addView(
+            text(
+                "Bible reading progress",
+                15f,
+                white
+            ).apply {
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            }
+        )
+
+        progressCard.addView(
+            text(
+                "${countReadAll()} of 1,189 chapters read",
+                12f,
+                gray
+            ).apply {
+
+                setPadding(
+                    0,
+                    dp(4),
+                    0,
+                    dp(10)
+                )
+            }
+        )
+
+        progressCard.addView(
+            ProgressBar(
+                this,
+                null,
+                android.R.attr.progressBarStyleHorizontal
+            ).apply {
+
+                max = 100
+
+                progress =
+                    overallPercentValue()
+                        .toInt()
+
+                progressTintList =
+                    ColorStateList.valueOf(
+                        selectedTheme
+                    )
+
+                progressBackgroundTintList =
+                    ColorStateList.valueOf(
+                        Color.rgb(
+                            62,
+                            62,
+                            62
+                        )
+                    )
+            },
+            LinearLayout.LayoutParams(
+                -1,
+                dp(7)
+            )
+        )
+
+        screen.addView(
+            progressCard,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(92)
+            )
+        )
+
+        addSpace(screen, 14)
+
+        // TABS
+
+        val tabs =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                setPadding(
+                    dp(3),
+                    dp(3),
+                    dp(3),
+                    dp(3)
+                )
+
+                background =
+                    rounded(surface2, 14)
+            }
+
+        val old =
+            modernButton("Old Testament") {
+                currentTestament =
+                    "Old Testament"
+
                 showTracker()
-            },
-            LinearLayout.LayoutParams(0, 50, 1f)
-        )
+            }
 
-        tabs.addView(
-            button("New Testament") {
-                currentTestament = "New Testament"
+        val new =
+            modernButton("New Testament") {
+                currentTestament =
+                    "New Testament"
+
                 showTracker()
-            },
-            LinearLayout.LayoutParams(0, 50, 1f)
+            }
+
+        tabs.addView(
+            old,
+            LinearLayout.LayoutParams(
+                0,
+                dp(45),
+                1f
+            )
         )
 
         tabs.addView(
-            button("Stats") {
-                showStats()
-            },
-            LinearLayout.LayoutParams(0, 50, 0.7f)
+            new,
+            LinearLayout.LayoutParams(
+                0,
+                dp(45),
+                1f
+            )
         )
 
         screen.addView(tabs)
 
-        addSpace(screen)
+        addSpace(screen, 10)
 
-        val groups = books
-            .filter { it.testament == currentTestament }
-            .map { it.group }
-            .distinct()
+        // STATS BUTTON
 
-        val scroll = ScrollView(this)
+        screen.addView(
+            modernButton("📊  View statistics") {
+                showStats()
+            },
+            LinearLayout.LayoutParams(
+                -1,
+                dp(46)
+            )
+        )
 
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
+        addSpace(screen, 10)
+
+        // BOOK LIST
+
+        val scroll =
+            ScrollView(this)
+
+        val content =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+            }
+
+        val groups =
+            books
+                .filter {
+                    it.testament ==
+                        currentTestament
+                }
+                .map {
+                    it.group
+                }
+                .distinct()
 
         groups.forEach { group ->
+
             content.addView(
-                text(group, 17f, white).apply {
-                    setPadding(4, 10, 4, 5)
-                }
+                sectionTitle(group)
             )
 
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-            }
-
-            var count = 0
-
-            books.filter {
-                it.testament == currentTestament && it.group == group
-            }.forEach { book ->
-
-                val b = button(book.name) {
-                    showBook(book)
+            books
+                .filter {
+                    it.testament ==
+                        currentTestament &&
+                    it.group ==
+                        group
                 }
+                .forEach { book ->
 
-                row.addView(
-                    b,
-                    LinearLayout.LayoutParams(
-                        0,
-                        55,
-                        1f
-                    ).apply {
-                        setMargins(3, 3, 3, 3)
-                    }
-                )
+                    content.addView(
+                        bookCard(book),
+                        LinearLayout.LayoutParams(
+                            -1,
+                            dp(74)
+                        ).apply {
 
-                count++
-
-                if (count == 4) {
-                    content.addView(row)
-                    row.removeAllViews()
-                    count = 0
-                }
-            }
-
-            if (row.childCount > 0) {
-                while (row.childCount < 4) {
-                    row.addView(
-                        Space(this),
-                        LinearLayout.LayoutParams(0, 55, 1f)
+                            setMargins(
+                                0,
+                                dp(4),
+                                0,
+                                dp(4)
+                            )
+                        }
                     )
                 }
-                content.addView(row)
-            }
         }
 
         scroll.addView(content)
@@ -621,7 +1629,7 @@ class MainActivity : AppCompatActivity() {
         screen.addView(
             scroll,
             LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                -1,
                 0,
                 1f
             )
@@ -630,91 +1638,479 @@ class MainActivity : AppCompatActivity() {
         setScreen(screen)
     }
 
-    // ------------------------------------------------------------
-    // BOOK / CHAPTERS
-    // ------------------------------------------------------------
+    private fun bookCard(
+        book: BibleBook
+    ): LinearLayout {
 
-    private fun showBook(book: BibleBook) {
-        val screen = baseLayout()
+        val done =
+            read[book.name]?.size ?: 0
 
-        val top = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
+        val percent =
+            if (book.chapters == 0)
+                0
+            else
+                (
+                    done * 100 /
+                        book.chapters
+                    )
 
-        top.addView(
-            button("‹ Back") {
+        val card =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+
+                setPadding(
+                    dp(15),
+                    dp(8),
+                    dp(10),
+                    dp(8)
+                )
+
+                background =
+                    rounded(surface2, 15)
+
+                setOnClickListener {
+                    showBook(book)
+                }
+            }
+
+        val icon =
+            TextView(this).apply {
+
+                text =
+                    if (percent == 100)
+                        "✓"
+                    else
+                        "📖"
+
+                textSize =
+                    if (percent == 100)
+                        20f
+                    else
+                        19f
+
+                gravity =
+                    Gravity.CENTER
+
+                setTextColor(
+                    if (percent == 100)
+                        Color.BLACK
+                    else
+                        white
+                )
+
+                background =
+                    rounded(
+                        if (percent == 100)
+                            selectedTheme
+                        else
+                            surface3,
+                        12
+                    )
+            }
+
+        card.addView(
+            icon,
+            LinearLayout.LayoutParams(
+                dp(45),
+                dp(45)
+            )
+        )
+
+        val info =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(12),
+                    0,
+                    dp(8),
+                    0
+                )
+            }
+
+        info.addView(
+            text(
+                book.name,
+                15f,
+                white
+            ).apply {
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            }
+        )
+
+        info.addView(
+            text(
+                "$done / ${book.chapters} chapters",
+                11f,
+                gray
+            )
+        )
+
+        card.addView(
+            info,
+            LinearLayout.LayoutParams(
+                0,
+                dp(50),
+                1f
+            )
+        )
+
+        val percentText =
+            text(
+                "$percent%",
+                14f,
+                if (percent == 100)
+                    selectedTheme
+                else
+                    blue
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            }
+
+        card.addView(
+            percentText,
+            LinearLayout.LayoutParams(
+                dp(55),
+                dp(45)
+            )
+        )
+
+        return card
+    }
+
+    // ============================================================
+    // BOOK PAGE
+    // ============================================================
+
+    private fun showBook(
+        book: BibleBook
+    ) {
+
+        currentScreen = "book"
+
+        val screen = page()
+
+        val done =
+            read[book.name]?.size ?: 0
+
+        val percent =
+            if (book.chapters == 0)
+                0
+            else
+                done * 100 / book.chapters
+
+        // HEADER
+
+        val header =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+            }
+
+        header.addView(
+            modernButton("‹") {
                 showTracker()
             },
-            LinearLayout.LayoutParams(90, 50)
+            LinearLayout.LayoutParams(
+                dp(48),
+                dp(48)
+            )
         )
 
-        top.addView(
-            button("☑ Mark all") {
+        header.addView(
+            text(
+                book.name,
+                21f,
+                white
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+
+            },
+            LinearLayout.LayoutParams(
+                0,
+                dp(48),
+                1f
+            )
+        )
+
+        header.addView(
+            text(
+                "$percent%",
+                15f,
+                blue
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+
+            },
+            LinearLayout.LayoutParams(
+                dp(55),
+                dp(48)
+            )
+        )
+
+        screen.addView(header)
+
+        addSpace(screen, 12)
+
+        // BOOK PROGRESS
+
+        val progressCard =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(16),
+                    dp(13),
+                    dp(16),
+                    dp(13)
+                )
+
+                background =
+                    rounded(surface2, 17)
+            }
+
+        progressCard.addView(
+            text(
+                "$done of ${book.chapters} chapters completed",
+                13f,
+                gray
+            )
+        )
+
+        progressCard.addView(
+            ProgressBar(
+                this,
+                null,
+                android.R.attr.progressBarStyleHorizontal
+            ).apply {
+
+                max = 100
+
+                progress = percent
+
+                progressTintList =
+                    ColorStateList.valueOf(
+                        selectedTheme
+                    )
+
+                progressBackgroundTintList =
+                    ColorStateList.valueOf(
+                        Color.rgb(
+                            65,
+                            65,
+                            65
+                        )
+                    )
+            },
+            LinearLayout.LayoutParams(
+                -1,
+                dp(7)
+            ).apply {
+
+                setMargins(
+                    0,
+                    dp(10),
+                    0,
+                    0
+                )
+            }
+        )
+
+        screen.addView(
+            progressCard,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(70)
+            )
+        )
+
+        addSpace(screen, 10)
+
+        // ACTIONS
+
+        val actions =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+            }
+
+        actions.addView(
+            primaryButton("✓ Mark all") {
                 markAll(book)
             },
-            LinearLayout.LayoutParams(0, 50, 1f)
+            LinearLayout.LayoutParams(
+                0,
+                dp(46),
+                1f
+            ).apply {
+
+                setMargins(
+                    0,
+                    0,
+                    dp(4),
+                    0
+                )
+            }
         )
 
-        top.addView(
-            button("☐ Unread") {
+        actions.addView(
+            modernButton("Clear") {
                 cancelAll(book)
             },
-            LinearLayout.LayoutParams(90, 50)
+            LinearLayout.LayoutParams(
+                0,
+                dp(46),
+                0.65f
+            ).apply {
+
+                setMargins(
+                    dp(4),
+                    0,
+                    0,
+                    0
+                )
+            }
         )
 
-        screen.addView(top)
+        screen.addView(actions)
 
-        val done = read[book.name]?.size ?: 0
-        val percent = if (book.chapters == 0) 0.0
-        else done * 100.0 / book.chapters
+        addSpace(screen, 10)
 
         screen.addView(
             text(
-                "${book.name}\n${String.format("%.1f", percent)}%",
-                23f
+                "Tap a chapter to mark it as read",
+                12f,
+                gray
             ).apply {
-                gravity = Gravity.CENTER
-                setPadding(0, 10, 0, 15)
+
+                gravity =
+                    Gravity.CENTER
+
+                setPadding(
+                    0,
+                    dp(4),
+                    0,
+                    dp(8)
+                )
             }
         )
 
-        val scroll = ScrollView(this)
-        val grid = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
+        // CHAPTER GRID
 
-        var row: LinearLayout? = null
+        val scroll =
+            ScrollView(this)
+
+        val grid =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+            }
+
+        var row:
+            LinearLayout? = null
 
         for (chapter in 1..book.chapters) {
+
             if ((chapter - 1) % 5 == 0) {
-                row = LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                }
+
+                row =
+                    LinearLayout(this).apply {
+
+                        orientation =
+                            LinearLayout.HORIZONTAL
+                    }
+
                 grid.addView(row)
             }
 
-            val isRead = read[book.name]?.contains(chapter) == true
+            val isRead =
+                read[book.name]
+                    ?.contains(chapter) == true
 
-            val chapterButton = button(
-                chapter.toString()
-            ) {
-                toggleChapter(book, chapter)
-            }
+            val chapterButton =
+                TextView(this).apply {
 
-            if (isRead) {
-                chapterButton.setBackgroundColor(blue)
-                chapterButton.setTextColor(Color.BLACK)
-            }
+                    text =
+                        chapter.toString()
+
+                    textSize = 15f
+
+                    gravity =
+                        Gravity.CENTER
+
+                    typeface =
+                        Typeface.DEFAULT_BOLD
+
+                    setTextColor(
+                        if (isRead)
+                            Color.BLACK
+                        else
+                            white
+                    )
+
+                    background =
+                        rounded(
+                            if (isRead)
+                                selectedTheme
+                            else
+                                surface2,
+                            13
+                        )
+
+                    setOnClickListener {
+                        toggleChapter(
+                            book,
+                            chapter
+                        )
+                    }
+                }
 
             row?.addView(
                 chapterButton,
                 LinearLayout.LayoutParams(
                     0,
-                    58,
+                    dp(58),
                     1f
                 ).apply {
-                    setMargins(3, 3, 3, 3)
+
+                    setMargins(
+                        dp(3),
+                        dp(3),
+                        dp(3),
+                        dp(3)
+                    )
                 }
             )
         }
@@ -724,7 +2120,7 @@ class MainActivity : AppCompatActivity() {
         screen.addView(
             scroll,
             LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                -1,
                 0,
                 1f
             )
@@ -733,249 +2129,791 @@ class MainActivity : AppCompatActivity() {
         setScreen(screen)
     }
 
-    private fun toggleChapter(book: BibleBook, chapter: Int) {
-        val set = read.getOrPut(book.name) { mutableSetOf() }
+    private fun toggleChapter(
+        book: BibleBook,
+        chapter: Int
+    ) {
+
+        val set =
+            read.getOrPut(
+                book.name
+            ) {
+                mutableSetOf()
+            }
 
         if (set.contains(chapter)) {
+
             set.remove(chapter)
+
         } else {
+
             set.add(chapter)
         }
 
         saveData()
+
         checkAchievements()
+
         showBook(book)
     }
 
-    private fun markAll(book: BibleBook) {
-        val set = read.getOrPut(book.name) { mutableSetOf() }
+    private fun markAll(
+        book: BibleBook
+    ) {
+
+        val set =
+            read.getOrPut(
+                book.name
+            ) {
+                mutableSetOf()
+            }
 
         for (i in 1..book.chapters) {
             set.add(i)
         }
 
         saveData()
+
         checkAchievements()
+
         showBook(book)
     }
 
-    private fun cancelAll(book: BibleBook) {
+    private fun cancelAll(
+        book: BibleBook
+    ) {
+
         read[book.name]?.clear()
 
         saveData()
+
         checkAchievements()
+
         showBook(book)
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // STATS
-    // ------------------------------------------------------------
+    // ============================================================
 
     private fun showStats() {
-        val screen = baseLayout()
 
-        screen.addView(
-            button("‹ Back") {
+        currentScreen = "stats"
+
+        val screen = page()
+
+        val header =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+            }
+
+        header.addView(
+            modernButton("‹") {
                 showTracker()
             },
-            LinearLayout.LayoutParams(90, 50)
-        )
-
-        screen.addView(
-            text("Percentage", 20f).apply {
-                setPadding(0, 15, 0, 10)
-            }
-        )
-
-        val ot = percentageFor("Old Testament")
-        val nt = percentageFor("New Testament")
-        val all = overallPercent()
-
-        val percentages = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
-
-        listOf(
-            "Old Testament" to ot,
-            "New Testament" to nt,
-            "Whole Bible" to all
-        ).forEach {
-            val box = TextView(this).apply {
-                text = "${it.second}%\n${it.first}"
-                textSize = 15f
-                setTextColor(white)
-                gravity = Gravity.CENTER
-                setPadding(5, 20, 5, 20)
-                setBackgroundColor(surface2)
-            }
-
-            percentages.addView(
-                box,
-                LinearLayout.LayoutParams(0, 110, 1f).apply {
-                    setMargins(4, 4, 4, 4)
-                }
+            LinearLayout.LayoutParams(
+                dp(48),
+                dp(48)
             )
-        }
+        )
 
-        screen.addView(percentages)
-
-        addSpace(screen, 20)
-
-        screen.addView(text("Chapters", 20f))
-
-        val otChapters = books
-            .filter { it.testament == "Old Testament" }
-            .sumOf { it.chapters }
-
-        val ntChapters = books
-            .filter { it.testament == "New Testament" }
-            .sumOf { it.chapters }
-
-        val allChapters = otChapters + ntChapters
-
-        screen.addView(
+        header.addView(
             text(
-                "Read chapters\n" +
-                        "${countRead("Old Testament")} / $otChapters     " +
-                        "${countRead("New Testament")} / $ntChapters     " +
-                        "${countReadAll()} / $allChapters",
-                16f
+                "Statistics",
+                22f,
+                white
             ).apply {
-                setPadding(0, 15, 0, 15)
+
+                gravity =
+                    Gravity.CENTER
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            },
+            LinearLayout.LayoutParams(
+                0,
+                dp(48),
+                1f
+            )
+        )
+
+        header.addView(
+            Space(this),
+            LinearLayout.LayoutParams(
+                dp(48),
+                dp(48)
+            )
+        )
+
+        screen.addView(header)
+
+        addSpace(screen, 14)
+
+        // BIG OVERALL CARD
+
+        val overall =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                gravity =
+                    Gravity.CENTER
+
+                setPadding(
+                    dp(20),
+                    dp(22),
+                    dp(20),
+                    dp(22)
+                )
+
+                background =
+                    rounded(surface2, 20)
+            }
+
+        overall.addView(
+            text(
+                "${overallPercent()}%",
+                42f,
+                blue
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
             }
         )
 
-        screen.addView(text("Books", 20f))
+        overall.addView(
+            text(
+                "Whole Bible",
+                14f,
+                gray
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+
+                setPadding(
+                    0,
+                    dp(3),
+                    0,
+                    dp(10)
+                )
+            }
+        )
+
+        overall.addView(
+            ProgressBar(
+                this,
+                null,
+                android.R.attr.progressBarStyleHorizontal
+            ).apply {
+
+                max = 100
+
+                progress =
+                    overallPercentValue()
+                        .toInt()
+
+                progressTintList =
+                    ColorStateList.valueOf(
+                        blue
+                    )
+
+                progressBackgroundTintList =
+                    ColorStateList.valueOf(
+                        Color.rgb(
+                            65,
+                            65,
+                            65
+                        )
+                    )
+            },
+            LinearLayout.LayoutParams(
+                -1,
+                dp(8)
+            )
+        )
+
+        overall.addView(
+            text(
+                "${countReadAll()} / 1,189 chapters",
+                12f,
+                gray
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+
+                setPadding(
+                    0,
+                    dp(8),
+                    0,
+                    0
+                )
+            }
+        )
 
         screen.addView(
-            text(
-                "Completed books\n" +
-                        "${completedBooks("Old Testament")} / " +
-                        books.count { it.testament == "Old Testament" } +
-                        "        " +
-                        "${completedBooks("New Testament")} / " +
-                        books.count { it.testament == "New Testament" },
-                16f
+            overall,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(190)
+            )
+        )
+
+        addSpace(screen, 14)
+
+        screen.addView(
+            sectionTitle("Testament progress")
+        )
+
+        // OT CARD
+
+        screen.addView(
+            statsTestamentCard(
+                "Old Testament",
+                percentageForValue(
+                    "Old Testament"
+                ),
+                countRead(
+                    "Old Testament"
+                ),
+                books
+                    .filter {
+                        it.testament ==
+                            "Old Testament"
+                    }
+                    .sumOf {
+                        it.chapters
+                    }
+            ),
+            LinearLayout.LayoutParams(
+                -1,
+                dp(105)
             ).apply {
-                setPadding(0, 15, 0, 15)
+
+                setMargins(
+                    0,
+                    dp(4),
+                    0,
+                    dp(5)
+                )
             }
+        )
+
+        // NT CARD
+
+        screen.addView(
+            statsTestamentCard(
+                "New Testament",
+                percentageForValue(
+                    "New Testament"
+                ),
+                countRead(
+                    "New Testament"
+                ),
+                books
+                    .filter {
+                        it.testament ==
+                            "New Testament"
+                    }
+                    .sumOf {
+                        it.chapters
+                    }
+            ),
+            LinearLayout.LayoutParams(
+                -1,
+                dp(105)
+            ).apply {
+
+                setMargins(
+                    0,
+                    dp(5),
+                    0,
+                    dp(12)
+                )
+            }
+        )
+
+        screen.addView(
+            sectionTitle("Reading summary")
+        )
+
+        val summary =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+            }
+
+        fun summaryBox(
+            value: String,
+            label: String
+        ): LinearLayout {
+
+            return LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                gravity =
+                    Gravity.CENTER
+
+                background =
+                    rounded(surface2, 16)
+
+                addView(
+                    text(
+                        value,
+                        21f,
+                        white
+                    ).apply {
+
+                        gravity =
+                            Gravity.CENTER
+
+                        typeface =
+                            Typeface.DEFAULT_BOLD
+                    },
+                    LinearLayout.LayoutParams(
+                        -1,
+                        dp(32)
+                    )
+                )
+
+                addView(
+                    text(
+                        label,
+                        11f,
+                        gray
+                    ).apply {
+
+                        gravity =
+                            Gravity.CENTER
+                    },
+                    LinearLayout.LayoutParams(
+                        -1,
+                        dp(26)
+                    )
+                )
+            }
+        }
+
+        summary.addView(
+            summaryBox(
+                countReadAll().toString(),
+                "Chapters"
+            ),
+            LinearLayout.LayoutParams(
+                0,
+                dp(70),
+                1f
+            ).apply {
+
+                setMargins(
+                    0,
+                    0,
+                    dp(4),
+                    0
+                )
+            }
+        )
+
+        summary.addView(
+            summaryBox(
+                completedBooks(
+                    "Old Testament"
+                ).toString(),
+                "OT books"
+            ),
+            LinearLayout.LayoutParams(
+                0,
+                dp(70),
+                1f
+            ).apply {
+
+                setMargins(
+                    dp(4),
+                    0,
+                    dp(4),
+                    0
+                )
+            }
+        )
+
+        summary.addView(
+            summaryBox(
+                completedBooks(
+                    "New Testament"
+                ).toString(),
+                "NT books"
+            ),
+            LinearLayout.LayoutParams(
+                0,
+                dp(70),
+                1f
+            ).apply {
+
+                setMargins(
+                    dp(4),
+                    0,
+                    0,
+                    0
+                )
+            }
+        )
+
+        screen.addView(
+            summary,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(70)
+            )
         )
 
         setScreen(screen)
     }
 
-    // ------------------------------------------------------------
+    private fun statsTestamentCard(
+        name: String,
+        percent: Double,
+        done: Int,
+        total: Int
+    ): LinearLayout {
+
+        val card =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(15),
+                    dp(10),
+                    dp(15),
+                    dp(10)
+                )
+
+                background =
+                    rounded(surface2, 16)
+            }
+
+        val row =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+            }
+
+        row.addView(
+            text(
+                name,
+                14f,
+                white
+            ).apply {
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            },
+            LinearLayout.LayoutParams(
+                0,
+                dp(28),
+                1f
+            )
+        )
+
+        row.addView(
+            text(
+                String.format(
+                    Locale.getDefault(),
+                    "%.1f%%",
+                    percent
+                ),
+                14f,
+                blue
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+            },
+            LinearLayout.LayoutParams(
+                dp(60),
+                dp(28)
+            )
+        )
+
+        card.addView(row)
+
+        card.addView(
+            ProgressBar(
+                this,
+                null,
+                android.R.attr.progressBarStyleHorizontal
+            ).apply {
+
+                max = 100
+
+                progress =
+                    percent.toInt()
+
+                progressTintList =
+                    ColorStateList.valueOf(
+                        blue
+                    )
+
+                progressBackgroundTintList =
+                    ColorStateList.valueOf(
+                        Color.rgb(
+                            65,
+                            65,
+                            65
+                        )
+                    )
+            },
+            LinearLayout.LayoutParams(
+                -1,
+                dp(7)
+            ).apply {
+
+                setMargins(
+                    0,
+                    dp(5),
+                    0,
+                    dp(5)
+                )
+            }
+        )
+
+        card.addView(
+            text(
+                "$done / $total chapters",
+                10f,
+                gray
+            )
+        )
+
+        return card
+    }
+
+    // ============================================================
     // ACHIEVEMENTS
-    // ------------------------------------------------------------
+    // ============================================================
 
     private fun showAchievements() {
-        checkAchievements()
 
-        val screen = baseLayout()
+        currentScreen =
+            "achievements"
 
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
+        checkAchievements(
+            false
+        )
+
+        val screen = page()
+
+        val unlocked =
+            achievements.count {
+                it.unlocked
+            }
+
+        val header =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+            }
 
         header.addView(
-            button("‹ Back") {
+            modernButton("‹") {
                 showTracker()
             },
-            LinearLayout.LayoutParams(85, 50)
+            LinearLayout.LayoutParams(
+                dp(48),
+                dp(48)
+            )
         )
 
         header.addView(
-            text("Achievements", 24f, blue).apply {
-                gravity = Gravity.CENTER
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                gravity =
+                    Gravity.CENTER
+
+                addView(
+                    text(
+                        "Achievements",
+                        21f,
+                        white
+                    ).apply {
+
+                        gravity =
+                            Gravity.CENTER
+
+                        typeface =
+                            Typeface.DEFAULT_BOLD
+                    }
+                )
+
+                addView(
+                    text(
+                        "$unlocked / ${achievements.size} unlocked",
+                        10f,
+                        gray
+                    ).apply {
+
+                        gravity =
+                            Gravity.CENTER
+                    }
+                )
             },
-            LinearLayout.LayoutParams(0, 55, 1f)
+            LinearLayout.LayoutParams(
+                0,
+                dp(52),
+                1f
+            )
         )
 
         header.addView(
-            text("1/${achievements.size}", 14f, blue).apply {
-                gravity = Gravity.CENTER
+            TextView(this).apply {
+
+                text = "🏆"
+
+                textSize = 22f
+
+                gravity =
+                    Gravity.CENTER
             },
-            LinearLayout.LayoutParams(50, 55)
+            LinearLayout.LayoutParams(
+                dp(48),
+                dp(48)
+            )
         )
 
         screen.addView(header)
 
-        screen.addView(
-            button("＋ Add Achievement") {
-                addAchievementDialog()
+        addSpace(screen, 12)
+
+        // ACHIEVEMENT SUMMARY
+
+        val summary =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+
+                setPadding(
+                    dp(15),
+                    dp(10),
+                    dp(15),
+                    dp(10)
+                )
+
+                background =
+                    rounded(surface2, 17)
+            }
+
+        summary.addView(
+            text(
+                "Your progress",
+                13f,
+                white
+            ).apply {
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
             },
             LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                50
+                0,
+                dp(28),
+                1f
             )
         )
 
-        val scroll = ScrollView(this)
-        val list = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-
-        achievements.forEachIndexed { index, achievement ->
-
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(10, 8, 8, 8)
-                setBackgroundColor(
-                    if (achievement.unlocked) blue else Color.rgb(220, 220, 220)
-                )
-            }
-
-            val icon = text(
-                if (achievement.unlocked) "🏆" else "🔒",
-                25f
+        summary.addView(
+            text(
+                "$unlocked / ${achievements.size}",
+                13f,
+                blue
             ).apply {
-                gravity = Gravity.CENTER
-                setTextColor(Color.DKGRAY)
+
+                gravity =
+                    Gravity.CENTER
+            },
+            LinearLayout.LayoutParams(
+                dp(65),
+                dp(28)
+            )
+        )
+
+        screen.addView(
+            summary,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(52)
+            )
+        )
+
+        addSpace(screen, 10)
+
+        screen.addView(
+            primaryButton("＋  Add Achievement") {
+                addAchievementDialog()
+            },
+            LinearLayout.LayoutParams(
+                -1,
+                dp(48)
+            )
+        )
+
+        addSpace(screen, 10)
+
+        val scroll =
+            ScrollView(this)
+
+        val list =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
             }
 
-            card.addView(
-                icon,
-                LinearLayout.LayoutParams(55, 62)
-            )
-
-            val info = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_VERTICAL
-            }
-
-            info.addView(
-                text(
-                    achievement.name,
-                    16f,
-                    if (achievement.unlocked) Color.BLACK else Color.DKGRAY
-                )
-            )
-
-            info.addView(
-                text(
-                    achievement.description,
-                    12f,
-                    if (achievement.unlocked) Color.DKGRAY else Color.DKGRAY
-                )
-            )
-
-            card.addView(
-                info,
-                LinearLayout.LayoutParams(0, 62, 1f)
-            )
-
-            card.setOnClickListener {
-                editAchievementDialog(index)
-            }
+        achievements.forEachIndexed {
+                index,
+                achievement ->
 
             list.addView(
-                card,
+                achievementCard(
+                    index,
+                    achievement
+                ),
                 LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    75
+                    -1,
+                    dp(82)
                 ).apply {
-                    setMargins(0, 3, 0, 3)
+
+                    setMargins(
+                        0,
+                        dp(3),
+                        0,
+                        dp(3)
+                    )
                 }
             )
         }
@@ -985,7 +2923,7 @@ class MainActivity : AppCompatActivity() {
         screen.addView(
             scroll,
             LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                -1,
                 0,
                 1f
             )
@@ -994,362 +2932,1153 @@ class MainActivity : AppCompatActivity() {
         setScreen(screen)
     }
 
+    private fun achievementCard(
+        index: Int,
+        achievement: Achievement
+    ): LinearLayout {
+
+        val unlocked =
+            achievement.unlocked
+
+        val card =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+
+                setPadding(
+                    dp(10),
+                    dp(8),
+                    dp(10),
+                    dp(8)
+                )
+
+                background =
+                    rounded(
+                        if (unlocked)
+                            Color.rgb(
+                                55,
+                                67,
+                                58
+                            )
+                        else
+                            surface2,
+                        15
+                    )
+
+                setOnClickListener {
+                    editAchievementDialog(
+                        index
+                    )
+                }
+            }
+
+        val icon =
+            TextView(this).apply {
+
+                text =
+                    if (unlocked)
+                        "🏆"
+                    else
+                        "🔒"
+
+                textSize = 22f
+
+                gravity =
+                    Gravity.CENTER
+
+                background =
+                    rounded(
+                        if (unlocked)
+                            selectedTheme
+                        else
+                            surface3,
+                        12
+                    )
+
+                if (!unlocked) {
+                    setTextColor(gray)
+                }
+            }
+
+        card.addView(
+            icon,
+            LinearLayout.LayoutParams(
+                dp(48),
+                dp(56)
+            )
+        )
+
+        val info =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+
+                setPadding(
+                    dp(12),
+                    0,
+                    dp(5),
+                    0
+                )
+            }
+
+        info.addView(
+            text(
+                achievement.name,
+                14f,
+                if (unlocked)
+                    white
+                else
+                    gray
+            ).apply {
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            }
+        )
+
+        info.addView(
+            text(
+                achievement.description,
+                11f,
+                if (unlocked)
+                    gray
+                else
+                    gray2
+            )
+        )
+
+        card.addView(
+            info,
+            LinearLayout.LayoutParams(
+                0,
+                dp(60),
+                1f
+            )
+        )
+
+        card.addView(
+            text(
+                if (unlocked)
+                    "✓"
+                else
+                    "›",
+                18f,
+                if (unlocked)
+                    selectedTheme
+                else
+                    gray
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+            },
+            LinearLayout.LayoutParams(
+                dp(32),
+                dp(50)
+            )
+        )
+
+        return card
+    }
+
     private fun addAchievementDialog() {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(25, 5, 25, 5)
-        }
 
-        val name = EditText(this).apply {
-            hint = "Achievement name"
-        }
+        val layout =
+            LinearLayout(this).apply {
 
-        val description = EditText(this).apply {
-            hint = "Reward / description"
-        }
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(22),
+                    dp(5),
+                    dp(22),
+                    dp(5)
+                )
+            }
+
+        val name =
+            EditText(this).apply {
+
+                hint = "Achievement name"
+
+                setTextColor(white)
+
+                setHintTextColor(gray)
+            }
+
+        val description =
+            EditText(this).apply {
+
+                hint = "Description"
+
+                setTextColor(white)
+
+                setHintTextColor(gray)
+            }
 
         layout.addView(name)
-        layout.addView(description)
+
+        layout.addView(
+            description
+        )
 
         AlertDialog.Builder(this)
-            .setTitle("Add Achievement")
+            .setTitle(
+                "Add Achievement"
+            )
             .setView(layout)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Save") { _, _ ->
+            .setNegativeButton(
+                "Cancel",
+                null
+            )
+            .setPositiveButton(
+                "Save"
+            ) { _, _ ->
+
                 achievements.add(
                     Achievement(
-                        name.text.toString().ifEmpty { "New Achievement" },
-                        description.text.toString()
+                        name.text
+                            .toString()
+                            .ifEmpty {
+                                "New Achievement"
+                            },
+                        description.text
+                            .toString()
                     )
                 )
+
                 showAchievements()
             }
             .show()
     }
 
-    private fun editAchievementDialog(index: Int) {
-        val a = achievements[index]
+    private fun editAchievementDialog(
+        index: Int
+    ) {
 
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(25, 5, 25, 5)
-        }
+        val achievement =
+            achievements[index]
 
-        val name = EditText(this).apply {
-            setText(a.name)
-        }
+        val layout =
+            LinearLayout(this).apply {
 
-        val desc = EditText(this).apply {
-            setText(a.description)
-        }
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(22),
+                    dp(5),
+                    dp(22),
+                    dp(5)
+                )
+            }
+
+        val name =
+            EditText(this).apply {
+
+                setText(
+                    achievement.name
+                )
+
+                setTextColor(white)
+            }
+
+        val desc =
+            EditText(this).apply {
+
+                setText(
+                    achievement.description
+                )
+
+                setTextColor(white)
+            }
 
         layout.addView(name)
+
         layout.addView(desc)
 
         AlertDialog.Builder(this)
-            .setTitle("Edit Achievement")
+            .setTitle(
+                "Edit Achievement"
+            )
             .setView(layout)
-            .setNegativeButton("Delete") { _, _ ->
-                achievements.removeAt(index)
+            .setNegativeButton(
+                "Delete"
+            ) { _, _ ->
+
+                achievements.removeAt(
+                    index
+                )
+
                 showAchievements()
             }
-            .setPositiveButton("Save") { _, _ ->
-                a.name = name.text.toString()
-                a.description = desc.text.toString()
+            .setPositiveButton(
+                "Save"
+            ) { _, _ ->
+
+                achievement.name =
+                    name.text.toString()
+
+                achievement.description =
+                    desc.text.toString()
+
                 showAchievements()
             }
             .show()
     }
 
-    private fun checkAchievements() {
+    // ============================================================
+    // ACHIEVEMENT LOGIC
+    // ============================================================
 
-        fun complete(bookName: String): Boolean {
-            val b = books.firstOrNull { it.name == bookName } ?: return false
-            return read[b.name]?.size == b.chapters
+    private fun checkAchievements(
+        showPopup: Boolean = true
+    ) {
+
+        fun complete(
+            bookName: String
+        ): Boolean {
+
+            val book =
+                books.firstOrNull {
+                    it.name == bookName
+                }
+                    ?: return false
+
+            return (
+                read[book.name]
+                    ?.size ?: 0
+                ) >= book.chapters
         }
 
         achievements.forEach { a ->
 
-            val wasUnlocked = a.unlocked
+            val wasUnlocked =
+                a.unlocked
 
-            a.unlocked = when (a.name) {
-                "The Man" -> complete("Matthew")
-                "The Lion" -> complete("Mark")
-                "The Calf" -> complete("Luke")
-                "The Eagle" -> complete("John")
+            a.unlocked =
+                when (a.name) {
 
-                "Evangelist" ->
-                    complete("Matthew") &&
-                    complete("Mark") &&
-                    complete("Luke") &&
-                    complete("John")
+                    "The Man" ->
+                        complete("Matthew")
 
-                "Apostle" -> complete("Acts")
+                    "The Lion" ->
+                        complete("Mark")
 
-                "The Beginning" -> complete("Genesis")
+                    "The Calf" ->
+                        complete("Luke")
 
-                "No longer slave" -> complete("Exodus")
+                    "The Eagle" ->
+                        complete("John")
 
-                "Sanctified" -> complete("Leviticus")
+                    "Evangelist" ->
+                        complete("Matthew") &&
+                        complete("Mark") &&
+                        complete("Luke") &&
+                        complete("John")
 
-                "Are we there yet?" -> complete("Numbers")
+                    "Apostle" ->
+                        complete("Acts")
 
-                "Covenant" -> complete("Deuteronomy")
+                    "The Rock" ->
+                        complete("1 Peter") &&
+                        complete("2 Peter")
 
-                "No Longer Ruthless" -> complete("Ruth")
+                    "The Beginning" ->
+                        complete("Genesis")
 
-                "Scribe" ->
-                    books.filter { it.group == "Law" }
-                        .all { complete(it.name) }
+                    "No longer slave" ->
+                        complete("Exodus")
 
-                "Poet" ->
-                    books.filter { it.group == "Poetry" }
-                        .all { complete(it.name) }
+                    "Sanctified" ->
+                        complete("Leviticus")
 
-                "Historian" ->
-                    books.filter {
-                        it.testament == "Old Testament" &&
+                    "Are we there yet?" ->
+                        complete("Numbers")
+
+                    "Covenant" ->
+                        complete("Deuteronomy")
+
+                    "No Longer Ruthless" ->
+                        complete("Ruth")
+
+                    "Scribe" ->
+                        books
+                            .filter {
+                                it.group == "Law"
+                            }
+                            .all {
+                                complete(it.name)
+                            }
+
+                    "Poet" ->
+                        books
+                            .filter {
+                                it.group == "Poetry"
+                            }
+                            .all {
+                                complete(it.name)
+                            }
+
+                    "Historian" ->
+                        books
+                            .filter {
                                 it.group == "History"
-                    }.all { complete(it.name) }
+                            }
+                            .all {
+                                complete(it.name)
+                            }
 
-                "Prophet" ->
-                    books.filter {
-                        it.testament == "Old Testament" &&
-                                (
-                                    it.group == "Major Prophets" ||
-                                    it.group == "Minor Prophets"
-                                )
-                    }.all { complete(it.name) }
+                    "Prophet" ->
+                        books
+                            .filter {
+                                it.group ==
+                                    "Major Prophets" ||
+                                it.group ==
+                                    "Minor Prophets"
+                            }
+                            .all {
+                                complete(it.name)
+                            }
 
-                "Paul(in)ist" ->
-                    books.filter { it.group == "Paul's Letters" }
-                        .all { complete(it.name) }
+                    "Wise Man" ->
+                        complete("Proverbs") &&
+                        complete("Job") &&
+                        complete("Ecclesiastes")
 
-                "The New Covenant" ->
-                    percentageForValue("New Testament") >= 100.0
+                    "Royal" -> {
 
-                "Before Christ" ->
-                    percentageForValue("Old Testament") >= 100.0
+                        val royal =
+                            listOf(
+                                "1 Samuel",
+                                "2 Samuel",
+                                "1 Kings",
+                                "2 Kings",
+                                "1 Chronicles",
+                                "2 Chronicles"
+                            )
 
-                "25%" -> overallPercentValue() >= 25.0
-                "50%" -> overallPercentValue() >= 50.0
-                "75%" -> overallPercentValue() >= 75.0
-                "Bible Nerd" -> overallPercentValue() >= 100.0
+                        royal.all {
+                            complete(it)
+                        }
+                    }
 
-                else -> a.unlocked
-            }
+                    "Paul(in)ist" ->
+                        books
+                            .filter {
+                                it.group ==
+                                    "Paul's Letters"
+                            }
+                            .all {
+                                complete(it.name)
+                            }
 
-            if (!wasUnlocked && a.unlocked) {
+                    "Penpal" -> {
+
+                        val letters =
+                            books.filter {
+                                it.group ==
+                                    "Paul's Letters" ||
+                                it.group ==
+                                    "General Letters"
+                            }
+
+                        letters.all {
+                            complete(it.name)
+                        }
+                    }
+
+                    "Apocalyptic" ->
+                        complete("Daniel") &&
+                        complete("Ezekiel") &&
+                        complete("Zechariah") &&
+                        complete("Revelation")
+
+                    "The New Covenant" ->
+                        percentageForValue(
+                            "New Testament"
+                        ) >= 100.0
+
+                    "Before Christ" ->
+                        percentageForValue(
+                            "Old Testament"
+                        ) >= 100.0
+
+                    "25%" ->
+                        overallPercentValue() >= 25.0
+
+                    "50%" ->
+                        overallPercentValue() >= 50.0
+
+                    "75%" ->
+                        overallPercentValue() >= 75.0
+
+                    "Bible Nerd" ->
+                        overallPercentValue() >= 100.0
+
+                    else ->
+                        a.unlocked
+                }
+
+            if (
+                showPopup &&
+                !wasUnlocked &&
+                a.unlocked
+            ) {
+
                 showAchievementUnlocked(a)
             }
         }
     }
 
-    private fun showAchievementUnlocked(a: Achievement) {
-        val message = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(25, 20, 25, 20)
-        }
+    private fun showAchievementUnlocked(
+        achievement: Achievement
+    ) {
 
-        message.addView(
-            text("🎉", 55f).apply {
-                gravity = Gravity.CENTER
+        val box =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                gravity =
+                    Gravity.CENTER
+
+                setPadding(
+                    dp(25),
+                    dp(20),
+                    dp(25),
+                    dp(20)
+                )
             }
-        )
 
-        message.addView(
-            text("Achievement", 22f, blue).apply {
-                gravity = Gravity.CENTER
-            }
-        )
-
-        message.addView(
-            text(a.name, 19f).apply {
-                gravity = Gravity.CENTER
-            }
-        )
-
-        message.addView(
-            text(a.description, 14f, gray).apply {
-                gravity = Gravity.CENTER
-                setPadding(0, 10, 0, 15)
-            }
-        )
-
-        message.addView(
+        box.addView(
             text(
-                when (a.book) {
-                    "Matthew" -> "👤"
-                    "Mark" -> "🦁"
-                    "Luke" -> "🐂"
-                    "John" -> "🦅"
-                    "Genesis" -> "🌍"
-                    "Exodus" -> "🔥"
-                    else -> "📖"
-                },
-                55f
+                "🏆",
+                52f
             ).apply {
-                gravity = Gravity.CENTER
+
+                gravity =
+                    Gravity.CENTER
+            }
+        )
+
+        box.addView(
+            text(
+                "Achievement unlocked!",
+                20f,
+                blue
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            }
+        )
+
+        box.addView(
+            text(
+                achievement.name,
+                18f,
+                white
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+
+                setPadding(
+                    0,
+                    dp(8),
+                    0,
+                    dp(3)
+                )
+            }
+        )
+
+        box.addView(
+            text(
+                achievement.description,
+                13f,
+                gray
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
             }
         )
 
         AlertDialog.Builder(this)
-            .setView(message)
-            .setPositiveButton("Hurray!") { _, _ ->
+            .setView(box)
+            .setPositiveButton(
+                "Hurray!"
+            ) { _, _ ->
+
                 showAchievements()
             }
             .setOnDismissListener {
-                showAchievements()
+
+                if (currentScreen ==
+                    "achievements"
+                ) {
+                    showAchievements()
+                }
             }
             .show()
     }
 
-    // ------------------------------------------------------------
-    // SETTINGS / BACKUP / RESTORE
-    // ------------------------------------------------------------
+    // ============================================================
+    // SETTINGS
+    // ============================================================
 
     private fun showSettings() {
-        val screen = baseLayout()
+
+        currentScreen =
+            "settings"
+
+        val screen = page()
+
+        val header =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+            }
+
+        header.addView(
+            modernButton("‹") {
+                showTrackers()
+            },
+            LinearLayout.LayoutParams(
+                dp(48),
+                dp(48)
+            )
+        )
+
+        header.addView(
+            text(
+                "Settings",
+                22f,
+                white
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            },
+            LinearLayout.LayoutParams(
+                0,
+                dp(48),
+                1f
+            )
+        )
+
+        header.addView(
+            Space(this),
+            LinearLayout.LayoutParams(
+                dp(48),
+                dp(48)
+            )
+        )
+
+        screen.addView(header)
+
+        addSpace(screen, 15)
 
         screen.addView(
-            text("Settings", 24f, green).apply {
-                gravity = Gravity.CENTER
-                setPadding(0, 10, 0, 20)
+            sectionTitle("Data")
+        )
+
+        screen.addView(
+            settingsCard(
+                "💾",
+                "Backup progress",
+                "Save your Bible reading progress to a file"
+            ) {
+                backup()
+            },
+            LinearLayout.LayoutParams(
+                -1,
+                dp(78)
+            ).apply {
+
+                setMargins(
+                    0,
+                    dp(4),
+                    0,
+                    dp(5)
+                )
             }
         )
 
         screen.addView(
-            button("‹ Back") {
-                showTrackers()
+            settingsCard(
+                "📂",
+                "Restore progress",
+                "Load your progress from a backup file"
+            ) {
+                restore()
             },
-            LinearLayout.LayoutParams(90, 50)
+            LinearLayout.LayoutParams(
+                -1,
+                dp(78)
+            ).apply {
+
+                setMargins(
+                    0,
+                    dp(5),
+                    0,
+                    dp(15)
+                )
+            }
+        )
+
+        screen.addView(
+            sectionTitle("Theme")
+        )
+
+        val colors =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER
+            }
+
+        val themeColors =
+            listOf(
+                green,
+                blue,
+                Color.rgb(
+                    180,
+                    140,
+                    220
+                ),
+                Color.rgb(
+                    210,
+                    150,
+                    110
+                )
+            )
+
+        themeColors.forEach { color ->
+
+            val circle =
+                TextView(this).apply {
+
+                    text =
+                        if (
+                            selectedTheme ==
+                            color
+                        )
+                            "✓"
+                        else
+                            "●"
+
+                    textSize =
+                        if (
+                            selectedTheme ==
+                            color
+                        )
+                            17f
+                        else
+                            30f
+
+                    setTextColor(
+                        if (
+                            selectedTheme ==
+                            color
+                        )
+                            Color.BLACK
+                        else
+                            color
+                    )
+
+                    gravity =
+                        Gravity.CENTER
+
+                    background =
+                        if (
+                            selectedTheme ==
+                            color
+                        )
+                            rounded(
+                                color,
+                                30
+                            )
+                        else
+                            null
+
+                    setOnClickListener {
+
+                        selectedTheme =
+                            color
+
+                        prefs.edit()
+                            .putInt(
+                                "theme_color",
+                                color
+                            )
+                            .apply()
+
+                        showSettings()
+                    }
+                }
+
+            colors.addView(
+                circle,
+                LinearLayout.LayoutParams(
+                    dp(58),
+                    dp(58)
+                ).apply {
+
+                    setMargins(
+                        dp(5),
+                        dp(5),
+                        dp(5),
+                        dp(5)
+                    )
+                }
+            )
+        }
+
+        screen.addView(
+            colors,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(70)
+            )
         )
 
         addSpace(screen, 15)
 
         screen.addView(
-            button("💾 Backup progress to file") {
-                backup()
-            },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                60
-            )
+            sectionTitle("About")
         )
 
-        addSpace(screen)
+        val about =
+            LinearLayout(this).apply {
 
-        screen.addView(
-            button("📂 Restore progress from file") {
-                restore()
-            },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                60
-            )
-        )
+                orientation =
+                    LinearLayout.VERTICAL
 
-        addSpace(screen, 25)
+                setPadding(
+                    dp(16),
+                    dp(15),
+                    dp(16),
+                    dp(15)
+                )
 
-        screen.addView(text("Theme color", 18f))
-
-        val colors = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
-
-        val themeColors = listOf(
-            green,
-            blue,
-            Color.GRAY,
-            Color.rgb(180, 140, 220)
-        )
-
-        themeColors.forEach { color ->
-            val c = TextView(this).apply {
-                text = "●"
-                textSize = 30f
-                setTextColor(color)
-                gravity = Gravity.CENTER
-
-                setOnClickListener {
-                    prefs.edit()
-                        .putInt("theme_color", color)
-                        .apply()
-
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Theme saved",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+                background =
+                    rounded(surface2, 16)
             }
 
-            colors.addView(
-                c,
-                LinearLayout.LayoutParams(0, 60, 1f)
-            )
-        }
+        about.addView(
+            text(
+                "Faith Mark",
+                17f,
+                white
+            ).apply {
 
-        screen.addView(colors)
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            }
+        )
+
+        about.addView(
+            text(
+                "Offline Bible Reading Tracker",
+                12f,
+                gray
+            ).apply {
+
+                setPadding(
+                    0,
+                    dp(4),
+                    0,
+                    0
+                )
+            }
+        )
+
+        about.addView(
+            text(
+                "Your reading data stays on this device.",
+                11f,
+                gray2
+            ).apply {
+
+                setPadding(
+                    0,
+                    dp(8),
+                    0,
+                    0
+                )
+            }
+        )
+
+        screen.addView(
+            about,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(105)
+            )
+        )
 
         setScreen(screen)
     }
 
-    private fun backup() {
-        val data = JSONObject()
-        data.put("app", "Bible Tracking")
-        data.put("version", 1)
+    private fun settingsCard(
+        icon: String,
+        title: String,
+        subtitle: String,
+        action: () -> Unit
+    ): LinearLayout {
 
-        val reading = JSONObject()
+        val card =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+
+                setPadding(
+                    dp(12),
+                    dp(8),
+                    dp(12),
+                    dp(8)
+                )
+
+                background =
+                    rounded(surface2, 15)
+
+                setOnClickListener {
+                    action()
+                }
+            }
+
+        card.addView(
+            text(
+                icon,
+                22f
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+
+            },
+            LinearLayout.LayoutParams(
+                dp(45),
+                dp(55)
+            )
+        )
+
+        val info =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(12),
+                    0,
+                    dp(5),
+                    0
+                )
+            }
+
+        info.addView(
+            text(
+                title,
+                14f,
+                white
+            ).apply {
+
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            }
+        )
+
+        info.addView(
+            text(
+                subtitle,
+                11f,
+                gray
+            )
+        )
+
+        card.addView(
+            info,
+            LinearLayout.LayoutParams(
+                0,
+                dp(55),
+                1f
+            )
+        )
+
+        card.addView(
+            text(
+                "›",
+                22f,
+                gray
+            ).apply {
+
+                gravity =
+                    Gravity.CENTER
+            },
+            LinearLayout.LayoutParams(
+                dp(30),
+                dp(50)
+            )
+        )
+
+        return card
+    }
+
+    // ============================================================
+    // BACKUP
+    // ============================================================
+
+    private fun backup() {
+
+        val data =
+            JSONObject()
+
+        data.put(
+            "app",
+            "Faith Mark"
+        )
+
+        data.put(
+            "version",
+            1
+        )
+
+        val reading =
+            JSONObject()
 
         read.forEach { (book, chapters) ->
-            val arr = JSONArray()
-            chapters.forEach { arr.put(it) }
-            reading.put(book, arr)
-        }
 
-        data.put("reading", reading)
+            val array =
+                JSONArray()
 
-        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            type = "application/json"
-            putExtra(
-                Intent.EXTRA_TITLE,
-                "bible-tracking-backup.json"
+            chapters.forEach {
+                array.put(it)
+            }
+
+            reading.put(
+                book,
+                array
             )
         }
 
-        startActivityForResult(intent, 1001)
-        backupPendingData = data.toString()
-    }
+        data.put(
+            "reading",
+            reading
+        )
 
-    private var backupPendingData: String? = null
+        backupPendingData =
+            data.toString()
+
+        val intent =
+            Intent(
+                Intent.ACTION_CREATE_DOCUMENT
+            ).apply {
+
+                type =
+                    "application/json"
+
+                putExtra(
+                    Intent.EXTRA_TITLE,
+                    "faith-mark-backup.json"
+                )
+            }
+
+        startActivityForResult(
+            intent,
+            1001
+        )
+    }
 
     private fun restore() {
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            type = "application/json"
-            addCategory(Intent.CATEGORY_OPENABLE)
-        }
 
-        startActivityForResult(intent, 1002)
+        val intent =
+            Intent(
+                Intent.ACTION_OPEN_DOCUMENT
+            ).apply {
+
+                type =
+                    "application/json"
+
+                addCategory(
+                    Intent.CATEGORY_OPENABLE
+                )
+            }
+
+        startActivityForResult(
+            intent,
+            1002
+        )
     }
 
+    @Deprecated("Use Activity Result API")
     override fun onActivityResult(
         requestCode: Int,
         resultCode: Int,
         data: Intent?
     ) {
-        super.onActivityResult(requestCode, resultCode, data)
 
-        if (resultCode != RESULT_OK) return
+        super.onActivityResult(
+            requestCode,
+            resultCode,
+            data
+        )
 
-        val uri: Uri = data?.data ?: return
+        if (
+            resultCode !=
+            RESULT_OK
+        ) {
+            return
+        }
+
+        val uri =
+            data?.data
+                ?: return
 
         try {
+
             if (requestCode == 1001) {
-                contentResolver.openOutputStream(uri)?.use {
-                    it.write((backupPendingData ?: "{}").toByteArray())
-                }
+
+                contentResolver
+                    .openOutputStream(uri)
+                    ?.use {
+
+                        it.write(
+                            (
+                                backupPendingData
+                                    ?: "{}"
+                                ).toByteArray()
+                        )
+                    }
 
                 Toast.makeText(
                     this,
@@ -1359,34 +4088,66 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (requestCode == 1002) {
-                val json = contentResolver
-                    .openInputStream(uri)
-                    ?.bufferedReader()
-                    ?.use { it.readText() }
-                    ?: return
 
-                val obj = JSONObject(json)
-                val reading = obj.optJSONObject("reading")
+                val json =
+                    contentResolver
+                        .openInputStream(uri)
+                        ?.bufferedReader()
+                        ?.use {
+                            it.readText()
+                        }
+                        ?: return
+
+                val obj =
+                    JSONObject(json)
+
+                val reading =
+                    obj.optJSONObject(
+                        "reading"
+                    )
 
                 if (reading != null) {
+
                     read.clear()
 
-                    val keys = reading.keys()
+                    val keys =
+                        reading.keys()
 
-                    while (keys.hasNext()) {
-                        val book = keys.next()
-                        val arr = reading.getJSONArray(book)
-                        val set = mutableSetOf<Int>()
+                    while (
+                        keys.hasNext()
+                    ) {
 
-                        for (i in 0 until arr.length()) {
-                            set.add(arr.getInt(i))
+                        val book =
+                            keys.next()
+
+                        val array =
+                            reading.getJSONArray(
+                                book
+                            )
+
+                        val set =
+                            mutableSetOf<Int>()
+
+                        for (
+                            i in
+                            0 until array.length()
+                        ) {
+
+                            set.add(
+                                array.getInt(i)
+                            )
                         }
 
-                        read[book] = set
+                        read[book] =
+                            set
                     }
 
                     saveData()
-                    checkAchievements()
+
+                    checkAchievements(
+                        false
+                    )
+
                     showTrackers()
 
                     Toast.makeText(
@@ -1396,7 +4157,9 @@ class MainActivity : AppCompatActivity() {
                     ).show()
                 }
             }
-        } catch (e: Exception) {
+
+        } catch (_: Exception) {
+
             Toast.makeText(
                 this,
                 "Backup/Restore error",
@@ -1405,60 +4168,99 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // CALCULATIONS
-    // ------------------------------------------------------------
+    // ============================================================
 
-    private fun overallPercentValue(): Double {
-        val total = books.sumOf { it.chapters }
+    private fun overallPercentValue():
+        Double {
 
-        if (total == 0) return 0.0
+        val total =
+            books.sumOf {
+                it.chapters
+            }
 
-        return countReadAll() * 100.0 / total
+        if (total == 0)
+            return 0.0
+
+        return (
+            countReadAll() *
+                100.0 /
+                total
+            )
     }
 
-    private fun overallPercent(): String {
-        return String.format("%.1f", overallPercentValue())
+    private fun overallPercent():
+        String {
+
+        return String.format(
+            Locale.getDefault(),
+            "%.1f",
+            overallPercentValue()
+        )
     }
 
-    private fun percentageForValue(testament: String): Double {
-        val total = books
-            .filter { it.testament == testament }
-            .sumOf { it.chapters }
+    private fun percentageForValue(
+        testament: String
+    ): Double {
 
-        val done = countRead(testament)
+        val total =
+            books
+                .filter {
+                    it.testament ==
+                        testament
+                }
+                .sumOf {
+                    it.chapters
+                }
 
-        if (total == 0) return 0.0
+        val done =
+            countRead(testament)
 
-        return done * 100.0 / total
+        if (total == 0)
+            return 0.0
+
+        return done *
+            100.0 /
+            total
     }
 
-    private fun percentageFor(testament: String): String {
-        val total = books
-            .filter { it.testament == testament }
-            .sumOf { it.chapters }
+    private fun countRead(
+        testament: String
+    ): Int {
 
-        val done = countRead(testament)
-
-        if (total == 0) return "0.0"
-
-        return String.format("%.1f", done * 100.0 / total)
-    }
-
-    private fun countRead(testament: String): Int {
         return books
-            .filter { it.testament == testament }
-            .sumOf { read[it.name]?.size ?: 0 }
+            .filter {
+                it.testament ==
+                    testament
+            }
+            .sumOf {
+                read[it.name]
+                    ?.size ?: 0
+            }
     }
 
-    private fun countReadAll(): Int {
-        return books.sumOf { read[it.name]?.size ?: 0 }
+    private fun countReadAll():
+        Int {
+
+        return books.sumOf {
+            read[it.name]
+                ?.size ?: 0
+        }
     }
 
-    private fun completedBooks(testament: String): Int {
+    private fun completedBooks(
+        testament: String
+    ): Int {
+
         return books.count {
-            it.testament == testament &&
-                    (read[it.name]?.size ?: 0) == it.chapters
+
+            it.testament ==
+                testament &&
+            (
+                read[it.name]
+                    ?.size ?: 0
+                ) >= it.chapters
         }
     }
 }
