@@ -1,0 +1,12 @@
+R_DEF: Internal format may change without notice
+local
+color accent_blue
+color background
+color primary
+color surface
+color surface_light
+color text_primary
+color text_secondary
+drawable app_icon
+string app_name
+style Theme.BibleTracking

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent_blue">#79D7F5</color>
+    <color name="background">#111111</color>
+    <color name="primary">#9CAF88</color>
+    <color name="surface">#242424</color>
+    <color name="surface_light">#303030</color>
+    <color name="text_primary">#F2F2F2</color>
+    <color name="text_secondary">#BDBDBD</color>
+    <string name="app_name">Bible Tracking</string>
+    <style name="Theme.BibleTracking" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">@color/accent_blue</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>
